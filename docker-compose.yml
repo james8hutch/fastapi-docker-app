@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  app:
+    container_name: fastapi-app
+    build:
+      context: .
+      target: base  # Use the "base" stage from the Dockerfile
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/mydb
+    volumes:
+      - ./alembic/versions:/app/alembic/versions
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  db:
+    container_name: fastapi-db
+    image: postgres:13
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: mydb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  migrate:
+    container_name: fastapi-migrate
+    build:
+      context: .
+      target: base  # Use the "base" stage for migrations
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["alembic", "upgrade", "head"]
+    environment:
+      - DATABASE_URL=postgresql://user:password@db:5432/mydb
+
+  test:
+    container_name: fastapi-test
+    build:
+      context: .
+      target: test  # Use the "test" stage from the Dockerfile
+    depends_on:
+      db:
+        condition: service_healthy
+    entrypoint: ["sh", "-c", "pytest -s --maxfail=1 --disable-warnings -v || exit 1"]
+    environment:
+      - DATABASE_URL=postgresql://test_user:test_password@db:5432/testdb
+
+volumes:
+  postgres_data:
