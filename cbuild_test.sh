@@ -45,7 +45,7 @@ fi
 
 # Run the migration container to apply migrations
 echo "Applying database migrations..."
-docker-compose run --rm migrate
+#docker-compose run --rm migrate
 
 # Run the test container and stream logs
 echo "Running tests..."
