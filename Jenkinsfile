@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    parameters {
+        string(name: 'BRANCH_NAME', defaultValue: 'main', description: 'Branch to build')
+    }
+
     environment {
         DB_CONTAINER_NAME = 'fastapi-db'
         MAX_RETRIES = 20
@@ -10,7 +14,8 @@ pipeline {
     stages {
         stage('Clone Repository') {
             steps {
-                git credentialsId: 'github-ssh-key', url: 'git@github.com:james8hutch/fastapi-docker-app.git', branch: 'main'
+                echo "Building branch: ${params.BRANCH_NAME}"
+                git credentialsId: 'github-ssh-key', url: 'git@github.com:james8hutch/fastapi-docker-app.git', branch: "${params.BRANCH_NAME}"
             }
         }
 
@@ -48,7 +53,12 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                sh 'docker-compose run --rm test'
+                script {
+                    def testResult = sh(script: 'docker-compose run --rm test', returnStatus: true)
+                    if (testResult != 0) {
+                        error("❌ Tests failed. Check the logs for details.")
+                    }
+                }
             }
         }
 
